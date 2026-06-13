@@ -1,0 +1,12 @@
+{
+  "claw": {
+    "channels": {
+      "wechatmp": {
+        "enabled": true,
+        "connectionMode": "webhook"
+      }
+    },
+    "users": {},
+    "legacyOwnerUid": "a9f17e40-3ccd-47b1-8cb8-16a8f4e340f3"
+  }
+}

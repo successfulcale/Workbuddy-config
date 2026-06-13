@@ -1,0 +1,22 @@
+[
+  {
+    "id": "deepseek-v4-pro",
+    "name": "DeepSeek-V4 Pro",
+    "vendor": "DeepSeek",
+    "url": "https://api.deepseek.com/chat/completions",
+    "apiKey": "sk-d5d0e47956b64d479ee067b2d82dc5ae",
+    "supportsToolCall": true,
+    "supportsImages": false,
+    "supportsReasoning": true
+  },
+  {
+    "id": "deepseek-v4-flash",
+    "name": "DeepSeek-V4 Flash",
+    "vendor": "DeepSeek",
+    "url": "https://api.deepseek.com/chat/completions",
+    "apiKey": "sk-d5d0e47956b64d479ee067b2d82dc5ae",
+    "supportsToolCall": true,
+    "supportsImages": false,
+    "supportsReasoning": true
+  }
+]

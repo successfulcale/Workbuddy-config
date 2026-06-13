@@ -1,0 +1,3 @@
+# Sensitive config files - do not commit
+skills/ifind-finance-data/mcp_config.json
+config/mcp-approvals.json
