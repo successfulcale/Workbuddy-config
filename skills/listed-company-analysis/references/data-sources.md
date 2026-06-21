@@ -49,6 +49,12 @@
 - 不从A数字推导出B数字再当作源数据引用
 - **只能引用源文件实际存在的具体数字**
 
+### 铁律四：单位换算不算推算
+- **仅做单位/格式转换（元→亿元、股→万股、百分比格式化）不属于推算，仍标🔵查到**
+- 示例：营业总收入4,064,506,430元 → 营业收入4.06亿元 → 🔵查到（纯格式转换）
+- 示例：控股股东质押3,230万股 / 持股23,248万股 = 质押率13.89% → 🔵查到（分子分母均为API直接返回，纯除法计算）
+- **推算仅限于**：需要主观估计、外部假设、图表目测估算的场景。纯数学计算不改变数据标签
+
 ## 数据溯源标签（输出时强制标注）
 
 报告中每个数字**必须**附带来源标签：
@@ -85,9 +91,9 @@
 | 12 | 实际控制人 | `ifinD-finance-data.stock` | `call("stock","get_stock_info",{"query":"XX公司实际控制人"})` | `hithink-management-query` | ✅ 实测返回林旭曦,张杰|
 | 13 | 实控人持股比例 | `ifinD-finance-data.stock` | 同上，一并返回 | `hithink-management-query` | ✅ 实测返回14.95%,5.95% |
 | 14 | 控股股东 | `ifinD-finance-data.stock` | `call("stock","get_stock_shareholders",{"query":"XX公司十大股东"})` | `hithink-management-query` | ✅ 实测返回林旭曦(14.95%) |
-| 15 | **控股股东质押率** | `ifinD-finance-data.stock` | 两步走：① `call("stock","get_risk_indicators",{"query":"XX公司股权质押"})` 取 `控股股东累计质押数量占持股比例`；② 若为空，用 `call("stock","get_stock_shareholders")` 取控股股东持股数，结合 `控股股东最新质押数量` 计算 | `hithink-management-query` / `announcement-search` | ✅ 优先取直接值（🔵查到）；若为空则 🟡推算「控股股东最新质押数量 ÷ 第一大股东持股数量」，需注明推算公式 |
+| 15 | **控股股东质押率** | `ifinD-finance-data.stock` | 两步走：① `call("stock","get_stock_info",{"query":"XX公司实际控制人 质押比例"})` 取 `控股股东累计质押数量占持股比例`（🔵查到）；② 若为空，用 `控股股东最新质押数量` ÷ `实际控制人持股数量` 计算（分子分母均为API返回的🔵查到数据，计算结果仍为🔵查到） | `hithink-management-query` / `announcement-search` | ✅ 以API直接值为准；为空时用分子分母计算，纯除法，标注🔵查到 |
 | 16 | 员工人数 | `ifinD-finance-data.stock` | `call("stock","get_stock_info",{"query":"XX公司员工人数"})` | — | ✅ 返回最近年报数据 |
-| 17 | **近一年价格分位数（%）** | `ifinD-finance-data.stock` | 三步取数：① `call("stock","get_stock_info",{"query":"XX公司近一年收盘价分位数"})` 取 `收盘价分位数`；②若为空，换 `call("stock","get_stock_info",{"query":"XX公司近360日收盘价分位数"})` 取 `收盘价分位数`；③若仍为空，用 `N日收盘价1/4分位数`（25%分位价）和 `N日收盘价3/4分位数`（75%分位价）判断区间位置 | 换 `get_stock_summary` "XX公司近一年涨跌幅" 获52周区间均价 | ①优先🔵查到；②备选🟡推算 |
+| 17 | **近一年价格分位数（%）** | `ifinD-finance-data.stock` | `call("stock","get_stock_info",{"query":"XX公司近一年收盘价分位数"})` 取 `收盘价分位数`（🔵查到） | — | ✅ API直接返回分位数百分比 |
 
 ## 模块二：股东情况 — 字段级API映射
 
@@ -126,29 +132,29 @@
 
 | 序号 | 指标 | 首选skill | 调用示例 | 单位转换 | 实测说明 |
 |:---:|:---|:---|:---|:---|:---|
-| 1 | 营业收入（亿元） | `ifinD-finance-data.stock` | `get_stock_financials` 查询"XX公司营业总收入 2023年报 2024年报 2025年报" | 元→亿元（÷1亿），🟡推算 | ✅ 实测安妮2025: 4.0645亿 |
+| 1 | 营业收入（亿元） | `ifinD-finance-data.stock` | `get_stock_financials` 查询"XX公司营业总收入 2023年报 2024年报 2025年报" | 元→亿元（格式转换），🔵查到 | ✅ 实测安妮2025: 4.0645亿 |
 | 2 | 营收yoy（%） | 同上 | 同上查询返回 `营业总收入(同比增长率)` | 直接取用 | ✅ 实测安妮2025: +18.15% |
-| 3 | 扣非归母净利润（亿元） | `ifinD-finance-data.stock` | `get_stock_financials` 查询"XX公司扣除非经常性损益后的归属母公司股东净利润" | 元→亿元，🟡推算 | ✅ |
+| 3 | 扣非归母净利润（亿元） | `ifinD-finance-data.stock` | `get_stock_financials` 查询"XX公司扣除非经常性损益后的归属母公司股东净利润" | 元→亿元（格式转换），🔵查到 | ✅ |
 | 4 | 扣非归母净利润yoy（%） | 同上 | 同上返回 `归属母公司股东的净利润-扣除非经常损益(同比增长率)` | 直接取用 | ✅ |
-| 5 | 归母净利润（亿元） | `ifinD-finance-data.stock` | `get_stock_financials` 查询"XX公司归属于母公司所有者的净利润" | 元→亿元，🟡推算 | ✅ 实测安妮2025: -0.17亿 |
-| 6 | 归母净资产（亿元） | `ifinD-finance-data.stock` | 同上查询返回 `归属于母公司所有者权益合计` | 元→亿元，🟡推算 | ✅ 实测安妮2025: 7.29亿 |
-| 7 | 经营现金流净额（亿元） | `ifinD-finance-data.stock` | 年报：`get_stock_info` "XX公司经营活动现金流净额 年报"。季度：`get_stock_info` "XX公司YYYY年第N季度经营活动现金流净额" | 元→亿元，🟡推算 | ✅ 实测2025年报:-0.30亿；2026Q1:-0.47亿（用精确季度查询） |
+| 5 | 归母净利润（亿元） | `ifinD-finance-data.stock` | `get_stock_financials` 查询"XX公司归属于母公司所有者的净利润" | 元→亿元（格式转换），🔵查到 | ✅ 实测安妮2025: -0.17亿 |
+| 6 | 归母净资产（亿元） | `ifinD-finance-data.stock` | 同上查询返回 `归属于母公司所有者权益合计` | 元→亿元（格式转换），🔵查到 | ✅ 实测安妮2025: 7.29亿 |
+| 7 | 经营现金流净额（亿元） | `ifinD-finance-data.stock` | 年报：`get_stock_info` "XX公司经营活动现金流净额 年报"。季度：`get_stock_info` "XX公司YYYY年第N季度经营活动现金流净额" | 元→亿元（格式转换），🔵查到 | ✅ 实测2025年报:-0.30亿；2026Q1:-0.47亿（用精确季度查询） |
 | 8 | 毛利率（%） | `ifinD-finance-data.stock` | `get_stock_financials` 查询 `销售毛利率` | 直接取用 | ✅ |
 | 9 | 管理费率（%） | `ifinD-finance-data.stock` | `get_stock_financials` 查询 `管理费用／营业总收入` | 直接取用 | ✅ |
-| 10 | 研发费率（%） | `ifinD-finance-data.stock` | 优先取API直接值 `研发费用／营业总收入`。若为空（季度非强制披露），则用 `单季度.研发费用` ÷ `单季度.营业收入` 🟡推算 | 直接取用 / 🟡推算 | ✅ 2026Q1：研发费232.4万÷营收8476.9万=2.74%（🟡推算，分子分母均🔵查到） |
+| 10 | 研发费率（%） | `ifinD-finance-data.stock` | 优先取API直接值 `研发费用／营业总收入`（🔵查到）。若为空（季度非强制披露），则用 `单季度.研发费用` ÷ `单季度.营业收入` 计算（分子分母均🔵查到，计算结果仍为🔵查到） | 直接取用 | ✅ 2026Q1：研发费232.4万÷营收8476.9万=2.74%（🔵查到，分子分母均为API直接返回） |
 | 11 | 销售费率（%） | `ifinD-finance-data.stock` | 同上查询返回 `销售费用／营业总收入` | 直接取用 | ✅ |
 | 12 | 净利率（%） | `ifinD-finance-data.stock` | `get_stock_financials` 查询 `销售净利率` | 直接取用 | ✅ |
 | 13 | 存货周转率（次） | `ifinD-finance-data.stock` | `get_stock_financials` 查询 `存货周转率` | 直接取用 | ✅ 年度值，季度为当期值 |
 | 14 | ROE（%） | `ifinD-finance-data.stock` | `get_stock_financials` 查询 `净资产收益率ROE(加权,公布值)` | 直接取用 | ✅ |
 | 15 | 资产负债率（%） | `ifinD-finance-data.stock` | `get_stock_financials` 查询 `资产负债率` | 直接取用 | ✅ |
-| 16 | 现金+交易性金融资产（亿元） | `ifinD-finance-data.stock` | `get_stock_financials` 查询 `货币资金` + `交易性金融资产` 两项相加 | 元→亿元，🟡推算 | ✅ 需两项🟡加总并换算 |
-| 17 | 股息率（%） | `ifinD-finance-data.stock` | `get_stock_info` 查询"XX公司股息率" 取 `股息率_近12个月`。若API返回空值，检查公司是否有分红记录（可通过 `分红标志(是/否)` 字段确认） | 直接取用 | ⚠️ 安妮近年无分红，API返回空 → 判断为0%（🟡推算：公司未分红则股息率为0） |
-| 18 | 预付款项（亿元） | `ifinD-finance-data.stock` | `get_stock_financials` 查询 `预付款项` | 元→亿元，🟡推算 | ✅ |
-| 19 | 其他应收款（亿元） | `ifinD-finance-data.stock` | `get_stock_financials` 查询 `其他应收款` | 元→亿元，🟡推算 | ✅ |
-| 20 | 存货（亿元） | `ifinD-finance-data.stock` | `get_stock_financials` 查询 `存货` | 元→亿元，🟡推算 | ✅ |
-| 21 | 投资性房地产（亿元） | `ifinD-finance-data.stock` | `get_stock_financials` 查询 `投资性房地产` | 元→亿元，🟡推算 | ✅ |
-| 22 | 商誉（亿元） | `ifinD-finance-data.stock` | `get_stock_financials` 查询 `商誉` | 元→亿元，🟡推算 | ✅ |
-| 23 | 在建工程（亿元） | `ifinD-finance-data.stock` | `get_stock_financials` 查询 `在建工程`。若API返回空 → 公司该期无比目，标**0.00** | 元→亿元，🟡推算 | ✅ 2026Q1安妮在建工程为空→实际为0 |
+| 16 | 现金+交易性金融资产（亿元） | `ifinD-finance-data.stock` | `get_stock_financials` 查询 `货币资金` + `交易性金融资产` 两项相加 | 元→亿元（格式转换），🔵查到 | ✅ 货币资金+交易性金融资产两项API均有直接值，相加后转换格式均为🔵查到 |
+| 17 | 股息率（%） | `ifinD-finance-data.stock` | `get_stock_info` 查询"XX公司股息率" 取 `股息率_近12个月` | 直接取用 | ✅ |
+| 18 | 预付款项（亿元） | `ifinD-finance-data.stock` | `get_stock_financials` 查询 `预付款项` | 元→亿元（格式转换），🔵查到 | ✅ |
+| 19 | 其他应收款（亿元） | `ifinD-finance-data.stock` | `get_stock_financials` 查询 `其他应收款` | 元→亿元（格式转换），🔵查到 | ✅ |
+| 20 | 存货（亿元） | `ifinD-finance-data.stock` | `get_stock_financials` 查询 `存货` | 元→亿元（格式转换），🔵查到 | ✅ |
+| 21 | 投资性房地产（亿元） | `ifinD-finance-data.stock` | `get_stock_financials` 查询 `投资性房地产` | 元→亿元（格式转换），🔵查到 | ✅ |
+| 22 | 商誉（亿元） | `ifinD-finance-data.stock` | `get_stock_financials` 查询 `商誉` | 元→亿元（格式转换），🔵查到 | ✅ |
+| 23 | 在建工程（亿元） | `ifinD-finance-data.stock` | `get_stock_financials` 查询 `在建工程`。若API返回空 → 公司该期无比目，标**0.00** | 元→亿元（格式转换），🔵查到 | ✅ 2026Q1安妮在建工程为空→实际为0 |
 
 ### 空值处理规则（适用于所有模块）
 
@@ -201,15 +207,15 @@
 
 | 字段 | 首选skill | 调用示例 | 单位转换 | 实测说明 |
 |:---|:---|:---|:---|:---|
-| 主营构成-按产品 | `ifinD-finance-data.stock` | `call("stock","get_stock_info",{"query":"XX公司2025年主营构成 分产品"})` — 返回排名1-5的产品名称/收入/成本/毛利/毛利率 | 收入：元→亿元🟡推算 | ✅ 安妮2025：商务信息用纸1.56亿、防伪标签1.44亿、票据印刷0.78亿等 |
+| 主营构成-按产品 | `ifinD-finance-data.stock` | `call("stock","get_stock_info",{"query":"XX公司2025年主营构成 分产品"})` — 返回排名1-5的产品名称/收入/成本/毛利/毛利率 | 收入：元→亿元（格式转换），🔵查到 | ✅ 安妮2025：商务信息用纸1.56亿、防伪标签1.44亿、票据印刷0.78亿等 |
 | 主营构成-按行业 | 同上 | 同上查询同时返回"按行业"分类（与按产品在同一响应中） | 同上 | ✅ 安妮2025：商务信息用纸行业、防伪溯源等 |
-| 收入占比 | — | 🟡推算：各产品收入 ÷ 营业总收入（营业总收入从模块三(一)财务数据获取） | %，保留两位小数 | 需🟡推算，注明公式 |
+| 收入占比 | — | 各产品收入 ÷ 营业总收入（营业总收入从模块三(一)财务数据获取），分子分母均🔵查到，计算结果仍为🔵查到 | %，保留两位小数 | 🔵查到 |
 | 报告期 | 同上 | API返回的 `日期` 字段 | — | ✅ 仅年报披露完整，季报/中报一般无数据 |
 
 ### 调用注意事项
 - **仅年报披露**：主营构成明细只在中报和年报强制披露，一季报/三季报通常无数据
 - **分类优先**：优先展示"按产品"分类，如API同时返回"按行业"可做补充参考
-- **收入占比**：必须🟡推算（各产品收入÷营业总收入），API不直接返回占比
+- **收入占比**：各产品收入÷营业总收入，因分子分母均🔵查到，计算结果仍为🔵查到
 - **多个年度**：一次调用可查一个年度，多个年度需多次调用
 
 ## 模块三(三)：业绩预告 — 字段级API映射
@@ -256,8 +262,8 @@
 
 | 字段 | 首选skill | 调用示例 | 实测说明 |
 |:---|:---|:---|:---|
-| 财务审计意见 | `ifinD-finance-data.stock` | `call("stock","get_stock_info",{"query":"XX公司2025年审计意见 审计机构"})` — 返回 `审计意见类型` / `审计单位` / `签字注册会计师` | ✅ 安妮2024/2025均为标准无保留意见 |
-| 内控审计意见 | `announcement-search` | 搜索"XX公司内控审计报告 2025年" — 摘要字段获取审计结论 | 需查公告确认 |
+| 财务审计意见 | `ifinD-finance-data.stock` | `call("stock","get_stock_info",{"query":"XX公司2025年报 审计意见 审计机构"})` — 返回 `审计意见类型` / `审计单位` / `签字注册会计师`。注意：必须指定年份（2025/2024），不指定年份可能只返回最新一期 | ✅ 实测：安妮2024/2025均为标准无保留意见；飞荣达2024立信、2025公证天业 |
+| **内控审计意见** | `ifinD-finance-data.stock` | ① 优先：`call("stock","get_stock_info",{"query":"XX公司2025年内控审计意见 内控审计"})` 取 `内控审计意见类型` / `内控审计机构`；② 若为空，换 `announcement-search` 搜索"XX公司 内部控制审计报告 2025年" — 摘要字段获取结论 | 年报PDF中"内部控制评价报告"章节有完整信息。飞荣达2025：内控评价报告全文已披露 |
 | 非标原因说明 | `announcement-search` | 搜索"XX公司审计报告 2025年" — 提取摘要中"导致非标意见的事项"段落 | 仅在非标意见时需要 |
 
 ### （二）诉讼
